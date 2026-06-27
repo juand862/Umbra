@@ -39,7 +39,8 @@ function upsertYaml(yaml: string, updates: Record<string, string>): string {
 
 export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY no configurada' }, { status: 500 })
+  if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY no configurada en Vercel. Ve a Settings → Environment Variables.' }, { status: 500 })
+  if (!process.env.GITHUB_TOKEN) return NextResponse.json({ error: 'GITHUB_TOKEN no configurado en Vercel. Necesario para escribir artefactos al repo.' }, { status: 500 })
 
   const { stage } = await req.json() as { stage: string }
   const config = AGENT_MAP[stage]

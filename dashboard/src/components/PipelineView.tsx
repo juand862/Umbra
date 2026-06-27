@@ -84,7 +84,11 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage: currentStage }),
       })
-      if (!res.ok || !res.body) throw new Error('Error iniciando agente')
+      if (!res.ok || !res.body) {
+        let detail = `HTTP ${res.status}`
+        try { const j = await res.json() as { error?: string }; if (j.error) detail = j.error } catch {}
+        throw new Error(detail)
+      }
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       while (true) {
@@ -340,7 +344,12 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
             </div>
           )}
 
-          {err && <p className="text-sm text-red-400">{err}</p>}
+          {err && (
+            <div className="rounded-xl border border-red-800 bg-red-900/20 p-4">
+              <p className="text-red-400 text-xs font-mono font-semibold mb-1">Error</p>
+              <p className="text-red-300 text-sm">{err}</p>
+            </div>
+          )}
         </>
       )}
     </div>
