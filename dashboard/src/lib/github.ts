@@ -1,21 +1,32 @@
-const TOKEN  = process.env.GITHUB_TOKEN!
+const TOKEN  = process.env.GITHUB_TOKEN
 const OWNER  = process.env.GITHUB_OWNER  ?? 'juand862'
 const REPO   = process.env.GITHUB_REPO   ?? 'Umbra'
 const BRANCH = process.env.GITHUB_BRANCH ?? 'main'
 const API    = 'https://api.github.com'
 
-function ghHeaders() {
+function readHeaders() {
+  const h: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  if (TOKEN) h['Authorization'] = `Bearer ${TOKEN}`
+  return h
+}
+
+function writeHeaders() {
+  if (!TOKEN) throw new Error('GITHUB_TOKEN no configurado — necesario para guardar cambios')
   return {
     Authorization: `Bearer ${TOKEN}`,
     Accept: 'application/vnd.github.v3+json',
     'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
   }
 }
 
 export async function listAgents(): Promise<Array<{ name: string }>> {
   const res = await fetch(
     `${API}/repos/${OWNER}/${REPO}/contents/.claude/agents?ref=${BRANCH}`,
-    { headers: ghHeaders(), next: { revalidate: 30 } }
+    { headers: readHeaders(), next: { revalidate: 30 } }
   )
   if (!res.ok) throw new Error(`GitHub ${res.status}`)
   const files = (await res.json()) as Array<{ name: string; type: string }>
@@ -26,7 +37,7 @@ export async function getAgent(name: string) {
   const path = `.claude/agents/${name}.md`
   const res = await fetch(
     `${API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`,
-    { headers: ghHeaders(), cache: 'no-store' }
+    { headers: readHeaders(), cache: 'no-store' }
   )
   if (!res.ok) throw new Error(`GitHub ${res.status}`)
   const data = (await res.json()) as { content: string; sha: string }
@@ -41,7 +52,7 @@ export async function updateAgent(name: string, content: string, sha: string) {
   const path = `.claude/agents/${name}.md`
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
     method: 'PUT',
-    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+    headers: writeHeaders(),
     body: JSON.stringify({
       message: `update(agent): ${name}`,
       content: Buffer.from(content).toString('base64'),
@@ -59,7 +70,7 @@ export async function updateAgent(name: string, content: string, sha: string) {
 export async function listEpisodes(): Promise<Array<{ name: string }>> {
   const res = await fetch(
     `${API}/repos/${OWNER}/${REPO}/contents/episodes?ref=${BRANCH}`,
-    { headers: ghHeaders(), next: { revalidate: 30 } }
+    { headers: readHeaders(), next: { revalidate: 30 } }
   )
   if (res.status === 404) return []
   if (!res.ok) throw new Error(`GitHub ${res.status}`)
@@ -70,7 +81,7 @@ export async function listEpisodes(): Promise<Array<{ name: string }>> {
 export async function getEpisodeMeta(slug: string): Promise<string | null> {
   const res = await fetch(
     `${API}/repos/${OWNER}/${REPO}/contents/episodes/${slug}/meta.yaml?ref=${BRANCH}`,
-    { headers: ghHeaders(), next: { revalidate: 30 } }
+    { headers: readHeaders(), next: { revalidate: 30 } }
   )
   if (!res.ok) return null
   const data = (await res.json()) as { content: string }
