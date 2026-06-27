@@ -24,7 +24,8 @@ async function AgentsGrid() {
   const agents = await Promise.all(
     files.map(async ({ name }) => {
       const { content } = await getAgent(name)
-      return { name, ...parseAgent(content) }
+      const { name: _n, ...meta } = parseAgent(content)
+      return { name, ...meta }
     })
   )
 
