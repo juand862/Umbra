@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+
+const RUNNABLE_STAGES: Record<string, { label: string; agentName: string }> = {
+  curador:   { label: 'Ejecutar curador',        agentName: 'curador' },
+  dossier:   { label: 'Ejecutar guionista',       agentName: 'guionista' },
+  narracion: { label: 'Ejecutar director visual', agentName: 'director-visual' },
+  ensamble:  { label: 'Ejecutar empaquetador',    agentName: 'empaquetador' },
+}
 
 const PIPELINE = [
   { id: 'dossier',   label: 'Dossier',   agent: 'A1', isGate: false },
@@ -52,14 +59,59 @@ interface Props {
 
 export default function PipelineView({ slug, currentStage, h1Approved, approvedByJD, metaContent, metaSha }: Props) {
   const router  = useRouter()
-  const [saving, setSaving]         = useState(false)
-  const [err, setErr]               = useState<string | null>(null)
+  const [saving, setSaving]          = useState(false)
+  const [err, setErr]                = useState<string | null>(null)
   const [selectedStage, setSelected] = useState(currentStage)
-  const [artifact, setArtifact]     = useState<string | null>(null)
-  const [loading, setLoading]       = useState(false)
+  const [artifact, setArtifact]      = useState<string | null>(null)
+  const [loading, setLoading]        = useState(false)
+  const [running, setRunning]        = useState(false)
+  const [streamText, setStreamText]  = useState<string | null>(null)
+  const streamRef = useRef<string>('')
 
   const stageIdx    = PIPELINE.findIndex(s => s.id === currentStage)
   const selectedIdx = PIPELINE.findIndex(s => s.id === selectedStage)
+
+  async function runAgent() {
+    setRunning(true)
+    setErr(null)
+    streamRef.current = ''
+    setStreamText('')
+    setArtifact(null)
+    try {
+      const res = await fetch(`/api/episodes/${slug}/run-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: currentStage }),
+      })
+      if (!res.ok || !res.body) throw new Error('Error iniciando agente')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          const data = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; error?: string; nextStage?: string }
+          if (data.error) throw new Error(data.error)
+          if (data.text) {
+            streamRef.current += data.text
+            setStreamText(streamRef.current)
+          }
+          if (data.done) {
+            setArtifact(streamRef.current)
+            setStreamText(null)
+            router.refresh()
+          }
+        }
+      }
+    } catch (e) {
+      setErr(String(e))
+      setStreamText(null)
+    } finally {
+      setRunning(false)
+    }
+  }
 
   const loadArtifact = useCallback(async (stage: string) => {
     const def = STAGE_FILE[stage]
@@ -181,22 +233,32 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
           )}
         </div>
         <div className="p-6 min-h-32">
-          {loading && (
-            <p className="text-slate-500 text-sm animate-pulse">Cargando…</p>
-          )}
-          {!loading && artifact && (
+          {/* Streaming output */}
+          {streamText !== null && (
             <div className="prose prose-invert prose-sm max-w-none
               prose-headings:text-white prose-headings:font-semibold
               prose-p:text-slate-300 prose-p:leading-relaxed
-              prose-li:text-slate-300
-              prose-strong:text-white
+              prose-li:text-slate-300 prose-strong:text-white
               prose-code:text-violet-300 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-              prose-hr:border-slate-700
-              prose-a:text-violet-400">
+              prose-hr:border-slate-700 prose-a:text-violet-400">
+              <ReactMarkdown>{streamText}</ReactMarkdown>
+              <span className="inline-block w-2 h-4 bg-violet-400 animate-pulse ml-0.5 align-middle" />
+            </div>
+          )}
+          {streamText === null && loading && (
+            <p className="text-slate-500 text-sm animate-pulse">Cargando…</p>
+          )}
+          {streamText === null && !loading && artifact && (
+            <div className="prose prose-invert prose-sm max-w-none
+              prose-headings:text-white prose-headings:font-semibold
+              prose-p:text-slate-300 prose-p:leading-relaxed
+              prose-li:text-slate-300 prose-strong:text-white
+              prose-code:text-violet-300 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+              prose-hr:border-slate-700 prose-a:text-violet-400">
               <ReactMarkdown>{artifact}</ReactMarkdown>
             </div>
           )}
-          {!loading && !artifact && (
+          {streamText === null && !loading && !artifact && (
             <p className="text-slate-600 text-sm">
               {STAGE_FILE[selectedStage]
                 ? `No hay artefacto todavía para esta etapa (${STAGE_FILE[selectedStage].file}).`
@@ -209,6 +271,28 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
       {/* Action cards — solo para etapa actual */}
       {selectedStage === currentStage && (
         <>
+          {/* Botón ejecutar agente */}
+          {RUNNABLE_STAGES[currentStage] && (
+            <div className="rounded-2xl border border-violet-800 bg-violet-900/20 p-5 flex items-center justify-between gap-4">
+              <div>
+                <span className="text-xs px-2 py-0.5 rounded-full font-mono mb-1.5 inline-block bg-violet-900/60 text-violet-300">
+                  {RUNNABLE_STAGES[currentStage].agentName}
+                </span>
+                <p className="font-semibold text-white">{RUNNABLE_STAGES[currentStage].label}</p>
+                <p className="text-slate-400 text-sm mt-0.5">
+                  Genera el artefacto con Claude y avanza el stage automáticamente.
+                </p>
+              </div>
+              <button
+                onClick={runAgent}
+                disabled={running || saving}
+                className="shrink-0 px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium text-sm disabled:opacity-40 transition-colors"
+              >
+                {running ? 'Ejecutando…' : 'Ejecutar →'}
+              </button>
+            </div>
+          )}
+
           {currentStage === 'guion' && !h1Approved && (
             <GateCard
               gate="H1" color="amber"
@@ -229,7 +313,7 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
             />
           )}
 
-          {!['guion', 'empaque', 'publicado', ''].includes(currentStage) && nextStage && (
+          {!['curador', 'dossier', 'guion', 'narracion', 'empaque', 'publicado', ''].includes(currentStage) && nextStage && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 flex items-center justify-between gap-4">
               <div>
                 <p className="font-semibold text-white">Marcar etapa completada</p>
