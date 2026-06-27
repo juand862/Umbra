@@ -45,6 +45,64 @@ const STAGE_FILE: Record<string, { file: string; label: string }> = {
   publicado: { file: '05_empaque.md',  label: 'Empaque publicado' },
 }
 
+function parseGuionForElevenLabs(slug: string, markdown: string): string {
+  const header = [
+    '╔══════════════════════════════════════════════════════════╗',
+    `║  UMBRA — ${slug}`,
+    '║  Script preparado para ElevenLabs',
+    '╚══════════════════════════════════════════════════════════╝',
+    '',
+    '── CONFIGURACIÓN RECOMENDADA ──────────────────────────────',
+    '  Modelo:            Eleven English v2 o Eleven Turbo v2.5',
+    '  Stability:         0.68  (consistencia entre segmentos)',
+    '  Similarity Boost:  0.80',
+    '  Style:             0.12  (narración sobria, no dramática)',
+    '  Speaker Boost:     ON',
+    '  Formato de export: WAV 44.1 kHz (mejor para edición)',
+    '',
+    '── INSTRUCCIONES DE USO ────────────────────────────────────',
+    '  • Genera cada SECCIÓN por separado para controlar el tono.',
+    '  • <break time="2.0s" /> = pausa larga (beat dramático).',
+    '  • <break time="1.2s" /> = pausa entre párrafos (insertar',
+    '    manualmente donde el texto lo pida).',
+    '  • Las líneas "── SECCIÓN: … ──" son guías visuales —',
+    '    NO las narres; solo indican dónde empieza cada parte.',
+    '  • Exporta cada sección como WAV independiente y nombrarlo',
+    '    igual que la etiqueta (ej: cold_open.wav, act1.wav).',
+    '════════════════════════════════════════════════════════════',
+    '',
+  ].join('\n')
+
+  let text = markdown
+  // Strip fenced code block metadata at top (```markdown ... ```)
+  text = text.replace(/^```[\w]*\n[\s\S]*?```\n?/, '')
+  // Remove horizontal rules
+  text = text.replace(/^---+$/gm, '')
+  // Convert section headers to visual separators (## COLD OPEN → ── SECCIÓN: COLD OPEN ──)
+  text = text.replace(/^#{1,3}\s+(.+)$/gm, (_, title) =>
+    `\n── SECCIÓN: ${title.trim()} ──\n`
+  )
+  // Convert `[BEAT]` and [BEAT] to ElevenLabs break tag
+  text = text.replace(/`\[BEAT\]`/g, '<break time="2.0s" />')
+  text = text.replace(/\[BEAT\]/g, '<break time="2.0s" />')
+  // Remove fact markers
+  text = text.replace(/\s*`?\[(CONFIRMADO|ALEGADO|DISPUTADO)[^\]]*\]`?/g, '')
+  // Collapse multiple blank lines to max two
+  text = text.replace(/\n{3,}/g, '\n\n')
+
+  return header + text.trim() + '\n'
+}
+
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function upsertYaml(yaml: string, updates: Record<string, string>): string {
   let result = yaml
   for (const [key, value] of Object.entries(updates)) {
@@ -181,9 +239,12 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
     }
   }
 
-  const today     = new Date().toISOString().slice(0, 10)
-  const nextStage = PIPELINE[stageIdx + 1]?.id
+  const today       = new Date().toISOString().slice(0, 10)
+  const nextStage   = PIPELINE[stageIdx + 1]?.id
   const artifactDef = STAGE_FILE[selectedStage]
+  const displayedFile = selectedStage === 'publicado'
+    ? pubTab
+    : STAGE_FILE[selectedStage]?.file
 
   return (
     <div className="space-y-6">
@@ -266,14 +327,28 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
               <span className="text-xs text-slate-600">vista histórica</span>
             )}
           </div>
-          {selectedStage !== currentStage && (
-            <button
-              onClick={() => setSelected(currentStage)}
-              className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
-            >
-              Ver etapa actual →
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {displayedFile === '01_guion.md' && artifact && (
+              <button
+                onClick={() => downloadText(
+                  `${slug}_elevenlabs.txt`,
+                  parseGuionForElevenLabs(slug, artifact)
+                )}
+                className="text-xs px-3 py-1 rounded-md bg-violet-900/60 text-violet-300 hover:bg-violet-800/60 transition-colors font-medium"
+                title="Descarga el script limpio con instrucciones de configuración para ElevenLabs"
+              >
+                Descargar para ElevenLabs ↓
+              </button>
+            )}
+            {selectedStage !== currentStage && (
+              <button
+                onClick={() => setSelected(currentStage)}
+                className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+              >
+                Ver etapa actual →
+              </button>
+            )}
+          </div>
         </div>
         <div className="p-6 min-h-32">
           {/* Streaming output */}
