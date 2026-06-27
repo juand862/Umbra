@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
 
 const PIPELINE = [
   { id: 'dossier',   label: 'Dossier',   agent: 'A1', isGate: false },
@@ -34,17 +36,20 @@ interface Props {
   approvedByJD: boolean
   metaContent: string
   metaSha: string
+  artifact: string | null
+  artifactLabel: string | null
 }
 
-export default function PipelineView({ slug, currentStage, h1Approved, approvedByJD, metaContent, metaSha }: Props) {
+export default function PipelineView({ slug, currentStage, h1Approved, approvedByJD, metaContent, metaSha, artifact, artifactLabel }: Props) {
+  const router  = useRouter()
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg]       = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [err, setErr]       = useState<string | null>(null)
 
   const stageIdx = PIPELINE.findIndex(s => s.id === currentStage)
 
   async function saveUpdates(updates: Record<string, string>) {
     setSaving(true)
-    setMsg(null)
+    setErr(null)
     try {
       const res = await fetch(`/api/episodes/${slug}/meta`, {
         method: 'PUT',
@@ -52,9 +57,9 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
         body: JSON.stringify({ content: upsertYaml(metaContent, updates), sha: metaSha }),
       })
       if (!res.ok) throw new Error()
-      setMsg({ type: 'ok', text: 'Guardado — recarga para ver el nuevo estado' })
+      router.refresh()
     } catch {
-      setMsg({ type: 'err', text: 'Error al guardar. ¿Está configurado GITHUB_TOKEN?' })
+      setErr('Error al guardar. ¿Está configurado GITHUB_TOKEN?')
     } finally {
       setSaving(false)
     }
@@ -98,6 +103,25 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
           })}
         </div>
       </div>
+
+      {/* Artifact */}
+      {artifact && artifactLabel && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-800 flex items-center gap-2">
+            <span className="text-xs uppercase tracking-widest text-slate-500">{artifactLabel}</span>
+          </div>
+          <div className="p-6 prose prose-invert prose-sm max-w-none
+            prose-headings:text-white prose-headings:font-semibold
+            prose-p:text-slate-300 prose-p:leading-relaxed
+            prose-li:text-slate-300
+            prose-strong:text-white
+            prose-code:text-violet-300 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+            prose-hr:border-slate-700
+            prose-a:text-violet-400">
+            <ReactMarkdown>{artifact}</ReactMarkdown>
+          </div>
+        </div>
+      )}
 
       {/* Action cards */}
       {currentStage === 'guion' && !h1Approved && (
@@ -146,9 +170,7 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
         </div>
       )}
 
-      {msg && (
-        <p className={`text-sm ${msg.type === 'ok' ? 'text-green-400' : 'text-red-400'}`}>{msg.text}</p>
-      )}
+      {err && <p className="text-sm text-red-400">{err}</p>}
     </div>
   )
 }
