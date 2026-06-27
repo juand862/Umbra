@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getAgent, getEpisodeFile, getEpisodeMetaWithSha, createFile, updateEpisodeMeta } from '@/lib/github'
+import { getAgent, getEpisodeFile, getEpisodeMetaWithSha, updateEpisodeMeta } from '@/lib/github'
 
 export const maxDuration = 300
 
@@ -93,30 +93,39 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
 
         // Save output file and update meta.yaml
         const today = new Date().toISOString().slice(0, 10)
+        const owner  = process.env.GITHUB_OWNER  ?? 'juand862'
+        const repo   = process.env.GITHUB_REPO   ?? 'Umbra'
+        const branch = process.env.GITHUB_BRANCH ?? 'main'
         const outputPath = `episodes/${params.slug}/${config.outputFile}`
+        const ghHeaders = {
+          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        }
 
-        // Try to get existing file sha for update, or create new
-        const existing = await getEpisodeFile(params.slug, config.outputFile)
-        if (existing === null) {
-          await createFile(outputPath, fullText)
-        } else {
-          // Need sha to update — fetch via github lib
-          const res = await fetch(
-            `https://api.github.com/repos/${process.env.GITHUB_OWNER ?? 'juand862'}/${process.env.GITHUB_REPO ?? 'Umbra'}/contents/${outputPath}?ref=${process.env.GITHUB_BRANCH ?? 'main'}`,
-            { headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' } }
-          )
-          const data = await res.json() as { sha: string }
-          const updateRes = await fetch(`https://api.github.com/repos/${process.env.GITHUB_OWNER ?? 'juand862'}/${process.env.GITHUB_REPO ?? 'Umbra'}/contents/${outputPath}`, {
+        // Always fetch fresh SHA (bypass Next.js cache)
+        const shaRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${outputPath}?ref=${branch}`,
+          { headers: ghHeaders, cache: 'no-store' }
+        )
+        const existingSha = shaRes.ok ? ((await shaRes.json()) as { sha: string }).sha : null
+
+        const saveRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${outputPath}`,
+          {
             method: 'PUT',
-            headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+            headers: ghHeaders,
             body: JSON.stringify({
               message: `feat(${params.slug}): ${config.agentName} → ${config.outputFile}`,
               content: Buffer.from(fullText).toString('base64'),
-              sha: data.sha,
-              branch: process.env.GITHUB_BRANCH ?? 'main',
+              ...(existingSha ? { sha: existingSha } : {}),
+              branch,
             }),
-          })
-          if (!updateRes.ok) throw new Error('Error actualizando archivo')
+          }
+        )
+        if (!saveRes.ok) {
+          const errBody = await saveRes.json().catch(() => ({})) as { message?: string }
+          throw new Error(`Error guardando ${config.outputFile}: ${errBody.message ?? saveRes.status}`)
         }
 
         // Update meta.yaml
