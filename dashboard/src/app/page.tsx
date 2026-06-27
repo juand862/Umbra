@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { listAgents, getAgent, listEpisodes, getEpisodeMeta } from '@/lib/github'
 import { parseAgent } from '@/lib/parse-agent'
+import NewEpisodeButton from '@/components/NewEpisodeButton'
 
 const MODEL_BADGE: Record<string, string> = {
   'claude-sonnet-4-6': 'bg-violet-900/60 text-violet-300 border-violet-700',
@@ -10,6 +11,7 @@ const MODEL_BADGE: Record<string, string> = {
 }
 
 const STAGE_COLOR: Record<string, string> = {
+  curador:   'bg-slate-700/60  text-slate-300',
   dossier:   'bg-blue-900/40   text-blue-300',
   guion:     'bg-yellow-900/40 text-yellow-300',
   h1:        'bg-amber-900/40  text-amber-300',
@@ -62,13 +64,17 @@ async function EpisodesTable() {
   let episodes: Array<{ name: string }> = []
   try { episodes = await listEpisodes() } catch {}
 
+  const slugs = episodes.map(e => e.name)
+
   if (episodes.length === 0) {
     return (
       <section>
-        <h2 className="text-xs uppercase tracking-widest text-slate-500 mb-4">Producción</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs uppercase tracking-widest text-slate-500">Producción</h2>
+          <NewEpisodeButton existingSlugs={slugs} />
+        </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-500 text-sm">
-          No hay episodios todavía.{' '}
-          <code className="text-violet-400 font-mono">/producir-episodio EP001</code>{' '}para empezar.
+          No hay episodios todavía. Usa el botón para iniciar el primer pipeline.
         </div>
       </section>
     )
@@ -85,7 +91,10 @@ async function EpisodesTable() {
 
   return (
     <section>
-      <h2 className="text-xs uppercase tracking-widest text-slate-500 mb-4">Producción</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xs uppercase tracking-widest text-slate-500">Producción</h2>
+        <NewEpisodeButton existingSlugs={slugs} />
+      </div>
       <div className="rounded-2xl border border-slate-800 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-900 text-slate-500 text-xs uppercase tracking-wider">

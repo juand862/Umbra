@@ -101,6 +101,23 @@ export async function getEpisodeMetaWithSha(slug: string): Promise<{ content: st
   }
 }
 
+export async function createFile(path: string, content: string) {
+  const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: writeHeaders(),
+    body: JSON.stringify({
+      message: `chore: scaffold ${path}`,
+      content: Buffer.from(content).toString('base64'),
+      branch: BRANCH,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { message?: string }).message ?? `GitHub ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function updateEpisodeMeta(slug: string, content: string, sha: string) {
   const path = `episodes/${slug}/meta.yaml`
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
