@@ -54,23 +54,22 @@ updated: YYYY-MM-DD
 
 ---
 
-## Estado actual: EP001 en curso
+## Estado actual: EP001 — Esperando aprobación H0 de JD para avanzar a guionista
 
-**Paso activo**: Agente `curador` (A1) corriendo en background — buscando caso de desaparición.
+**Curador (A1) completado ✓**
+- Caso elegido: **Rebecca Coriam** — desaparición a bordo del Disney Wonder, 22 mar 2011
+- Archivos creados: `episodes/EP001_rebecca-coriam/00_dossier.md` y `meta.yaml`
+- `data/casos_cubiertos.csv` actualizado
 
-**Qué sigue cuando termines esta ventana:**
-1. Verificar si el curador terminó: revisar si existe `episodes/EP001_*/00_dossier.md` en el repo
-2. Si terminó → leer el dossier y mostrárselo al usuario para aprobación
-3. Si no terminó → relanzar el curador con el prompt del archivo `SESION_CONTEXTO.md`
+**Ángulo único**: La sandalia encontrada en Cubierta 5 (única evidencia física) llevaba el nombre de *otra persona* y no era la talla de Rebecca. La investigación bahameña cerró el caso sin confrontar esta contradicción.
 
-### Prompt para relanzar el curador (si no terminó)
-Delegar al agente `curador` con esta instrucción:
-> Eres el agente curador (A1) del canal UMBRA. Sub-ángulo: desapariciones inexplicadas.
-> Elige un caso real sin resolver, investiga fuentes, crea `episodes/EP001_<slug>/00_dossier.md`
-> y `episodes/EP001_<slug>/meta.yaml` (stage: dossier). Actualiza `data/casos_cubiertos.csv`.
-> Estructura del dossier: Caso, Ángulo único, Cronología, Fuentes verificadas,
-> Clasificación de hechos ([CONFIRMADO]/[ALEGADO]/[DISPUTADO]), Evaluación de riesgo.
-> Fecha hoy: 2026-06-27.
+**Advertiser safety: OK** | **Riesgo legal: menor** (acuerdo extrajudicial con Disney 2016 — no especular sobre términos)
+
+**Qué sigue en la nueva ventana:**
+1. Mostrarle a JD el dossier (ya está en `episodes/EP001_rebecca-coriam/00_dossier.md`)
+2. Esperar aprobación de JD
+3. Con aprobación → delegar al agente `guionista` para `01_guion.md`
+4. **STOP compuerta H1**: mostrar guion a JD para revisión antes de continuar
 
 ---
 
