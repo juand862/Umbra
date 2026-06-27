@@ -13,6 +13,14 @@ const RUNNABLE_STAGES: Record<string, { label: string; agentName: string }> = {
   empaque:   { label: 'Ejecutar compliance',      agentName: 'compliance' },
 }
 
+const PUBLISHED_ARTIFACTS = [
+  { file: '05_empaque.md', label: 'Empaque' },
+  { file: 'compliance.md', label: 'Compliance' },
+  { file: '01_guion.md',   label: 'Guion' },
+  { file: '02_shotlist.md',label: 'Shotlist' },
+  { file: '00_dossier.md', label: 'Dossier' },
+]
+
 const PIPELINE = [
   { id: 'dossier',   label: 'Dossier',   agent: 'A1', isGate: false },
   { id: 'guion',     label: 'Guion',     agent: 'A2', isGate: false },
@@ -35,6 +43,64 @@ const STAGE_FILE: Record<string, { file: string; label: string }> = {
   empaque:   { file: '05_empaque.md',  label: 'Empaque — A6' },
   a0:        { file: 'compliance.md',  label: 'Compliance — pendiente A0' },
   publicado: { file: '05_empaque.md',  label: 'Empaque publicado' },
+}
+
+function parseGuionForElevenLabs(slug: string, markdown: string): string {
+  const header = [
+    '╔══════════════════════════════════════════════════════════╗',
+    `║  UMBRA — ${slug}`,
+    '║  Script preparado para ElevenLabs',
+    '╚══════════════════════════════════════════════════════════╝',
+    '',
+    '── CONFIGURACIÓN RECOMENDADA ──────────────────────────────',
+    '  Modelo:            Eleven English v2 o Eleven Turbo v2.5',
+    '  Stability:         0.68  (consistencia entre segmentos)',
+    '  Similarity Boost:  0.80',
+    '  Style:             0.12  (narración sobria, no dramática)',
+    '  Speaker Boost:     ON',
+    '  Formato de export: WAV 44.1 kHz (mejor para edición)',
+    '',
+    '── INSTRUCCIONES DE USO ────────────────────────────────────',
+    '  • Genera cada SECCIÓN por separado para controlar el tono.',
+    '  • <break time="2.0s" /> = pausa larga (beat dramático).',
+    '  • <break time="1.2s" /> = pausa entre párrafos (insertar',
+    '    manualmente donde el texto lo pida).',
+    '  • Las líneas "── SECCIÓN: … ──" son guías visuales —',
+    '    NO las narres; solo indican dónde empieza cada parte.',
+    '  • Exporta cada sección como WAV independiente y nombrarlo',
+    '    igual que la etiqueta (ej: cold_open.wav, act1.wav).',
+    '════════════════════════════════════════════════════════════',
+    '',
+  ].join('\n')
+
+  let text = markdown
+  // Strip fenced code block metadata at top (```markdown ... ```)
+  text = text.replace(/^```[\w]*\n[\s\S]*?```\n?/, '')
+  // Remove horizontal rules
+  text = text.replace(/^---+$/gm, '')
+  // Convert section headers to visual separators (## COLD OPEN → ── SECCIÓN: COLD OPEN ──)
+  text = text.replace(/^#{1,3}\s+(.+)$/gm, (_, title) =>
+    `\n── SECCIÓN: ${title.trim()} ──\n`
+  )
+  // Convert `[BEAT]` and [BEAT] to ElevenLabs break tag
+  text = text.replace(/`\[BEAT\]`/g, '<break time="2.0s" />')
+  text = text.replace(/\[BEAT\]/g, '<break time="2.0s" />')
+  // Remove fact markers
+  text = text.replace(/\s*`?\[(CONFIRMADO|ALEGADO|DISPUTADO)[^\]]*\]`?/g, '')
+  // Collapse multiple blank lines to max two
+  text = text.replace(/\n{3,}/g, '\n\n')
+
+  return header + text.trim() + '\n'
+}
+
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function upsertYaml(yaml: string, updates: Record<string, string>): string {
@@ -68,6 +134,8 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
   const [loading, setLoading]        = useState(false)
   const [running, setRunning]        = useState(false)
   const [streamText, setStreamText]  = useState<string | null>(null)
+  const [pubTab, setPubTab]          = useState(PUBLISHED_ARTIFACTS[0].file)
+  const pubTabRef = useRef(PUBLISHED_ARTIFACTS[0].file)
   const streamRef = useRef<string>('')
 
   const stageIdx    = PIPELINE.findIndex(s => s.id === currentStage)
@@ -119,13 +187,15 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
     }
   }
 
-  const loadArtifact = useCallback(async (stage: string) => {
-    const def = STAGE_FILE[stage]
-    if (!def) { setArtifact(null); return }
+  const loadArtifact = useCallback(async (stage: string, pubFile?: string) => {
+    const file = stage === 'publicado'
+      ? (pubFile ?? pubTabRef.current)
+      : STAGE_FILE[stage]?.file
+    if (!file) { setArtifact(null); return }
     setLoading(true)
     setArtifact(null)
     try {
-      const res = await fetch(`/api/episodes/${slug}/file?name=${def.file}`)
+      const res = await fetch(`/api/episodes/${slug}/file?name=${file}`)
       if (!res.ok) { setArtifact(null); return }
       const data = await res.json() as { content: string }
       setArtifact(data.content)
@@ -139,6 +209,12 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
   useEffect(() => {
     loadArtifact(selectedStage)
   }, [selectedStage, loadArtifact])
+
+  function switchPubTab(file: string) {
+    pubTabRef.current = file
+    setPubTab(file)
+    loadArtifact('publicado', file)
+  }
 
   function selectStage(id: string, idx: number) {
     if (idx > stageIdx) return // futuro, no clicable
@@ -163,9 +239,12 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
     }
   }
 
-  const today     = new Date().toISOString().slice(0, 10)
-  const nextStage = PIPELINE[stageIdx + 1]?.id
+  const today       = new Date().toISOString().slice(0, 10)
+  const nextStage   = PIPELINE[stageIdx + 1]?.id
   const artifactDef = STAGE_FILE[selectedStage]
+  const displayedFile = selectedStage === 'publicado'
+    ? pubTab
+    : STAGE_FILE[selectedStage]?.file
 
   return (
     <div className="space-y-6">
@@ -222,21 +301,54 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
       <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs uppercase tracking-widest text-slate-500">
-              {artifactDef?.label ?? PIPELINE[selectedIdx]?.label ?? selectedStage}
-            </span>
+            {selectedStage === 'publicado' ? (
+              <div className="flex items-center gap-1">
+                {PUBLISHED_ARTIFACTS.map(a => (
+                  <button
+                    key={a.file}
+                    onClick={() => switchPubTab(a.file)}
+                    className={[
+                      'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                      pubTab === a.file
+                        ? 'bg-slate-700 text-white'
+                        : 'text-slate-500 hover:text-slate-300',
+                    ].join(' ')}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs uppercase tracking-widest text-slate-500">
+                {artifactDef?.label ?? PIPELINE[selectedIdx]?.label ?? selectedStage}
+              </span>
+            )}
             {selectedStage !== currentStage && (
               <span className="text-xs text-slate-600">vista histórica</span>
             )}
           </div>
-          {selectedStage !== currentStage && (
-            <button
-              onClick={() => setSelected(currentStage)}
-              className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
-            >
-              Ver etapa actual →
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {displayedFile === '01_guion.md' && artifact && (
+              <button
+                onClick={() => downloadText(
+                  `${slug}_elevenlabs.txt`,
+                  parseGuionForElevenLabs(slug, artifact)
+                )}
+                className="text-xs px-3 py-1 rounded-md bg-violet-900/60 text-violet-300 hover:bg-violet-800/60 transition-colors font-medium"
+                title="Descarga el script limpio con instrucciones de configuración para ElevenLabs"
+              >
+                Descargar para ElevenLabs ↓
+              </button>
+            )}
+            {selectedStage !== currentStage && (
+              <button
+                onClick={() => setSelected(currentStage)}
+                className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+              >
+                Ver etapa actual →
+              </button>
+            )}
+          </div>
         </div>
         <div className="p-6 min-h-32">
           {/* Streaming output */}

@@ -111,6 +111,16 @@ export async function getEpisodeFile(slug: string, filename: string): Promise<st
   return Buffer.from(data.content, 'base64').toString('utf-8')
 }
 
+export async function getRepoFile(path: string): Promise<string | null> {
+  const res = await fetch(
+    `${API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`,
+    { headers: readHeaders(), cache: 'no-store' }
+  )
+  if (!res.ok) return null
+  const data = (await res.json()) as { content: string }
+  return Buffer.from(data.content, 'base64').toString('utf-8')
+}
+
 export async function createFile(path: string, content: string) {
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
     method: 'PUT',
