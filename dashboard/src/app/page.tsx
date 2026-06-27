@@ -25,6 +25,16 @@ const STAGE_COLOR: Record<string, string> = {
 
 function modelLabel(m: string) { return m.split('-').slice(1, 3).join('-') }
 
+const AGENT_ORDER: Record<string, { step: string; color: string }> = {
+  'curador':        { step: 'A1', color: 'bg-violet-900/60 text-violet-300 border-violet-800' },
+  'guionista':      { step: 'A2', color: 'bg-violet-900/60 text-violet-300 border-violet-800' },
+  'director-visual':{ step: 'A4', color: 'bg-violet-900/60 text-violet-300 border-violet-800' },
+  'empaquetador':   { step: 'A6', color: 'bg-violet-900/60 text-violet-300 border-violet-800' },
+  'compliance':     { step: 'A0', color: 'bg-amber-900/60  text-amber-300  border-amber-800'  },
+  'analista':       { step: 'A8', color: 'bg-slate-700/60  text-slate-300  border-slate-600'  },
+}
+const AGENT_SORT = ['curador','guionista','director-visual','empaquetador','compliance','analista']
+
 async function AgentsGrid() {
   const files = await listAgents()
   const agents = await Promise.all(
@@ -34,27 +44,42 @@ async function AgentsGrid() {
       return { name, ...meta }
     })
   )
+  const sorted = [...agents].sort((a, b) => {
+    const ai = AGENT_SORT.indexOf(a.name)
+    const bi = AGENT_SORT.indexOf(b.name)
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
   return (
     <section>
       <h2 className="text-xs uppercase tracking-widest text-slate-500 mb-4">Agentes</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {agents.map(agent => (
-          <Link key={agent.name} href={`/agents/${agent.name}`}
-            className="group flex flex-col p-5 rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-600 hover:bg-slate-800/80 transition-all">
-            <div className="flex items-start justify-between mb-3">
-              <span className="font-semibold text-white group-hover:text-violet-300 transition-colors">{agent.name}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full border font-mono ${MODEL_BADGE[agent.model] ?? 'bg-slate-700 text-slate-300 border-slate-600'}`}>
-                {modelLabel(agent.model)}
-              </span>
-            </div>
-            <p className="text-slate-400 text-sm leading-relaxed mb-4 flex-1 line-clamp-2">{agent.description}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {agent.tools.split(',').map(t => t.trim()).filter(Boolean).map(tool => (
-                <span key={tool} className="text-xs bg-slate-800 text-slate-500 px-2 py-0.5 rounded-md border border-slate-700">{tool}</span>
-              ))}
-            </div>
-          </Link>
-        ))}
+        {sorted.map(agent => {
+          const meta = AGENT_ORDER[agent.name]
+          return (
+            <Link key={agent.name} href={`/agents/${agent.name}`}
+              className="group flex flex-col p-5 rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-600 hover:bg-slate-800/80 transition-all">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {meta && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-mono shrink-0 ${meta.color}`}>
+                      {meta.step}
+                    </span>
+                  )}
+                  <span className="font-semibold text-white group-hover:text-violet-300 transition-colors">{agent.name}</span>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full border font-mono shrink-0 ${MODEL_BADGE[agent.model] ?? 'bg-slate-700 text-slate-300 border-slate-600'}`}>
+                  {modelLabel(agent.model)}
+                </span>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed mb-4 flex-1 line-clamp-2">{agent.description}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {agent.tools.split(',').map(t => t.trim()).filter(Boolean).map(tool => (
+                  <span key={tool} className="text-xs bg-slate-800 text-slate-500 px-2 py-0.5 rounded-md border border-slate-700">{tool}</span>
+                ))}
+              </div>
+            </Link>
+          )
+        })}
       </div>
     </section>
   )
