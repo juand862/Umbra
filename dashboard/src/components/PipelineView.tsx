@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 const RUNNABLE_STAGES: Record<string, { label: string; agentName: string }> = {
   curador:   { label: 'Ejecutar curador',        agentName: 'curador' },
   dossier:   { label: 'Ejecutar guionista',       agentName: 'guionista' },
+  guion:     { label: 'Re-ejecutar guionista',    agentName: 'guionista' },
   narracion: { label: 'Ejecutar director visual', agentName: 'director-visual' },
   ensamble:  { label: 'Ejecutar empaquetador',    agentName: 'empaquetador' },
 }
@@ -293,7 +294,7 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
             </div>
           )}
 
-          {currentStage === 'guion' && !h1Approved && (
+          {currentStage === 'guion' && !h1Approved && artifact && (
             <GateCard
               gate="H1" color="amber"
               label="Aprobar guion"
@@ -303,7 +304,7 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
             />
           )}
 
-          {currentStage === 'empaque' && !approvedByJD && (
+          {currentStage === 'empaque' && !approvedByJD && artifact && (
             <GateCard
               gate="A0" color="green"
               label="Aprobar para publicar"
