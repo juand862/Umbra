@@ -10,6 +10,7 @@ const RUNNABLE_STAGES: Record<string, { label: string; agentName: string }> = {
   guion:     { label: 'Re-ejecutar guionista',    agentName: 'guionista' },
   narracion: { label: 'Ejecutar director visual', agentName: 'director-visual' },
   ensamble:  { label: 'Ejecutar empaquetador',    agentName: 'empaquetador' },
+  empaque:   { label: 'Ejecutar compliance',      agentName: 'compliance' },
 }
 
 const PIPELINE = [
@@ -32,7 +33,7 @@ const STAGE_FILE: Record<string, { file: string; label: string }> = {
   visuales:  { file: '02_shotlist.md', label: 'Shotlist — A4 visuales' },
   ensamble:  { file: '02_shotlist.md', label: 'Shotlist' },
   empaque:   { file: '05_empaque.md',  label: 'Empaque — A6' },
-  a0:        { file: '05_empaque.md',  label: 'Empaque — pendiente A0' },
+  a0:        { file: 'compliance.md',  label: 'Compliance — pendiente A0' },
   publicado: { file: '05_empaque.md',  label: 'Empaque publicado' },
 }
 
@@ -308,17 +309,17 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
             />
           )}
 
-          {currentStage === 'empaque' && !approvedByJD && artifact && (
+          {currentStage === 'a0' && !approvedByJD && artifact && (
             <GateCard
               gate="A0" color="green"
               label="Aprobar para publicar"
-              description="Confirma que el episodio pasó compliance y está listo para YouTube."
+              description="Confirma que el reporte de compliance es verde y el episodio está listo para YouTube."
               saving={saving}
-              onApprove={() => saveUpdates({ stage: 'a0', approved_by: 'JD', updated: today })}
+              onApprove={() => saveUpdates({ stage: 'publicado', approved_by: 'JD', updated: today })}
             />
           )}
 
-          {!['curador', 'dossier', 'guion', 'narracion', 'empaque', 'publicado', ''].includes(currentStage) && nextStage && (
+          {!['curador', 'dossier', 'guion', 'narracion', 'empaque', 'a0', 'publicado', ''].includes(currentStage) && nextStage && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 flex items-center justify-between gap-4">
               <div>
                 <p className="font-semibold text-white">Marcar etapa completada</p>
