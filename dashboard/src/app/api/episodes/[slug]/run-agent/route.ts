@@ -13,6 +13,7 @@ const AGENT_MAP: Record<string, {
 }> = {
   curador:   { agentName: 'curador',        model: 'claude-sonnet-4-6', outputFile: '00_dossier.md',  nextStage: 'dossier',   contextFiles: [] },
   dossier:   { agentName: 'guionista',      model: 'claude-opus-4-8',   outputFile: '01_guion.md',    nextStage: 'guion',     contextFiles: ['00_dossier.md'] },
+  guion:     { agentName: 'guionista',      model: 'claude-opus-4-8',   outputFile: '01_guion.md',    nextStage: 'guion',     contextFiles: ['00_dossier.md'] },
   narracion: { agentName: 'director-visual',model: 'claude-sonnet-4-6', outputFile: '02_shotlist.md', nextStage: 'visuales',  contextFiles: ['01_guion.md'] },
   ensamble:  { agentName: 'empaquetador',   model: 'claude-sonnet-4-6', outputFile: '05_empaque.md',  nextStage: 'empaque',   contextFiles: ['00_dossier.md', '01_guion.md', '02_shotlist.md'] },
 }
