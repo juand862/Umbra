@@ -13,6 +13,14 @@ const RUNNABLE_STAGES: Record<string, { label: string; agentName: string }> = {
   empaque:   { label: 'Ejecutar compliance',      agentName: 'compliance' },
 }
 
+const PUBLISHED_ARTIFACTS = [
+  { file: '05_empaque.md', label: 'Empaque' },
+  { file: 'compliance.md', label: 'Compliance' },
+  { file: '01_guion.md',   label: 'Guion' },
+  { file: '02_shotlist.md',label: 'Shotlist' },
+  { file: '00_dossier.md', label: 'Dossier' },
+]
+
 const PIPELINE = [
   { id: 'dossier',   label: 'Dossier',   agent: 'A1', isGate: false },
   { id: 'guion',     label: 'Guion',     agent: 'A2', isGate: false },
@@ -68,6 +76,8 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
   const [loading, setLoading]        = useState(false)
   const [running, setRunning]        = useState(false)
   const [streamText, setStreamText]  = useState<string | null>(null)
+  const [pubTab, setPubTab]          = useState(PUBLISHED_ARTIFACTS[0].file)
+  const pubTabRef = useRef(PUBLISHED_ARTIFACTS[0].file)
   const streamRef = useRef<string>('')
 
   const stageIdx    = PIPELINE.findIndex(s => s.id === currentStage)
@@ -119,13 +129,15 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
     }
   }
 
-  const loadArtifact = useCallback(async (stage: string) => {
-    const def = STAGE_FILE[stage]
-    if (!def) { setArtifact(null); return }
+  const loadArtifact = useCallback(async (stage: string, pubFile?: string) => {
+    const file = stage === 'publicado'
+      ? (pubFile ?? pubTabRef.current)
+      : STAGE_FILE[stage]?.file
+    if (!file) { setArtifact(null); return }
     setLoading(true)
     setArtifact(null)
     try {
-      const res = await fetch(`/api/episodes/${slug}/file?name=${def.file}`)
+      const res = await fetch(`/api/episodes/${slug}/file?name=${file}`)
       if (!res.ok) { setArtifact(null); return }
       const data = await res.json() as { content: string }
       setArtifact(data.content)
@@ -139,6 +151,12 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
   useEffect(() => {
     loadArtifact(selectedStage)
   }, [selectedStage, loadArtifact])
+
+  function switchPubTab(file: string) {
+    pubTabRef.current = file
+    setPubTab(file)
+    loadArtifact('publicado', file)
+  }
 
   function selectStage(id: string, idx: number) {
     if (idx > stageIdx) return // futuro, no clicable
@@ -222,9 +240,28 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
       <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs uppercase tracking-widest text-slate-500">
-              {artifactDef?.label ?? PIPELINE[selectedIdx]?.label ?? selectedStage}
-            </span>
+            {selectedStage === 'publicado' ? (
+              <div className="flex items-center gap-1">
+                {PUBLISHED_ARTIFACTS.map(a => (
+                  <button
+                    key={a.file}
+                    onClick={() => switchPubTab(a.file)}
+                    className={[
+                      'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                      pubTab === a.file
+                        ? 'bg-slate-700 text-white'
+                        : 'text-slate-500 hover:text-slate-300',
+                    ].join(' ')}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs uppercase tracking-widest text-slate-500">
+                {artifactDef?.label ?? PIPELINE[selectedIdx]?.label ?? selectedStage}
+              </span>
+            )}
             {selectedStage !== currentStage && (
               <span className="text-xs text-slate-600">vista histórica</span>
             )}

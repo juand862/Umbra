@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getAgent, getEpisodeFile, getEpisodeMetaWithSha, updateEpisodeMeta } from '@/lib/github'
+import { getAgent, getEpisodeFile, getEpisodeMetaWithSha, updateEpisodeMeta, getRepoFile } from '@/lib/github'
 
 export const maxDuration = 300
 
@@ -10,13 +10,14 @@ const AGENT_MAP: Record<string, {
   outputFile: string
   nextStage: string
   contextFiles: string[]
+  repoFiles?: string[]
 }> = {
   curador:   { agentName: 'curador',        model: 'claude-sonnet-4-6', outputFile: '00_dossier.md',  nextStage: 'dossier',   contextFiles: [] },
   dossier:   { agentName: 'guionista',      model: 'claude-opus-4-8',   outputFile: '01_guion.md',    nextStage: 'guion',     contextFiles: ['00_dossier.md'] },
   guion:     { agentName: 'guionista',      model: 'claude-opus-4-8',   outputFile: '01_guion.md',    nextStage: 'guion',     contextFiles: ['00_dossier.md'] },
   narracion: { agentName: 'director-visual',model: 'claude-sonnet-4-6', outputFile: '02_shotlist.md', nextStage: 'visuales',  contextFiles: ['01_guion.md'] },
   ensamble:  { agentName: 'empaquetador',   model: 'claude-sonnet-4-6', outputFile: '05_empaque.md',  nextStage: 'empaque',   contextFiles: ['00_dossier.md', '01_guion.md', '02_shotlist.md'] },
-  empaque:   { agentName: 'compliance',     model: 'claude-sonnet-4-6', outputFile: 'compliance.md',  nextStage: 'a0',        contextFiles: ['00_dossier.md', '01_guion.md', '05_empaque.md'] },
+  empaque:   { agentName: 'compliance',     model: 'claude-sonnet-4-6', outputFile: 'compliance.md',  nextStage: 'a0',        contextFiles: ['00_dossier.md', '01_guion.md', '05_empaque.md'], repoFiles: ['data/casos_cubiertos.csv'] },
 }
 
 function parseAgentPrompt(content: string): string {
@@ -61,6 +62,10 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   for (const file of config.contextFiles) {
     const content = await getEpisodeFile(params.slug, file)
     if (content) contextParts.push(`### ${file}\n\n${content}`)
+  }
+  for (const path of config.repoFiles ?? []) {
+    const content = await getRepoFile(path)
+    if (content) contextParts.push(`### ${path}\n\n${content}`)
   }
 
   const userMessage = contextParts.length
