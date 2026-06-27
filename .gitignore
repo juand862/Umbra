@@ -1,6 +1,12 @@
 # Secrets
 .env
 
+# Node / Next.js
+node_modules/
+.next/
+next-env.d.ts
+package-lock.json
+
 # Media binaries
 episodes/**/*.mp3
 episodes/**/*.mp4
