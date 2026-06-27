@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getAgent, getEpisodeMetaWithSha, updateEpisodeMeta } from '@/lib/github'
+import { getAgent, getEpisodeFile, getEpisodeMetaWithSha, updateEpisodeMeta } from '@/lib/github'
 
 export const maxDuration = 300
 
