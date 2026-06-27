@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import Link from 'next/link'
 import { listAgents, getAgent, listEpisodes, getEpisodeMeta } from '@/lib/github'
 import { parseAgent } from '@/lib/parse-agent'
