@@ -101,6 +101,16 @@ export async function getEpisodeMetaWithSha(slug: string): Promise<{ content: st
   }
 }
 
+export async function getEpisodeFile(slug: string, filename: string): Promise<string | null> {
+  const res = await fetch(
+    `${API}/repos/${OWNER}/${REPO}/contents/episodes/${slug}/${filename}?ref=${BRANCH}`,
+    { headers: readHeaders(), next: { revalidate: 30 } }
+  )
+  if (!res.ok) return null
+  const data = (await res.json()) as { content: string }
+  return Buffer.from(data.content, 'base64').toString('utf-8')
+}
+
 export async function createFile(path: string, content: string) {
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
     method: 'PUT',
