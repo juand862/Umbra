@@ -1,6 +1,6 @@
 # UMBRA — Arquitectura de producción y medición
 
-**v0.2 — actualizado 2026-06-27** _(v0.1 sellado 2026-06-25)_
+**v0.3 — actualizado 2026-06-29** _(v0.2 sellado 2026-06-27 · v0.1 sellado 2026-06-25)_
 
 Codename: **UMBRA**. Nicho: true crime / **casos reales sin resolver** (unsolved cases). Sub-ángulo: **desapariciones**. Idioma: **inglés**. Framing: **línea de exploración y aprendizaje**. NO compite con Proyecto Freedom; no cuenta en proyecciones de runway/FIRE hasta cruzar el scale-gate con unit economics positivos. Presupuesto de tools objetivo: **$50–100 USD/mes**.
 
@@ -29,7 +29,8 @@ flowchart TD
     H1 --> A4["A4 · Dirección visual\nAI art, mapas, archivo"]
     A3 --> A5["A5 · Edición / ensamblaje\ntimeline, música, captions"]
     A4 --> A5
-    A5 --> A6["A6 · Empaque\nthumbnail + título (A/B)"]
+    A5 --> Val["Val · Validación\ntranscript vs guion/shotlist"]
+    Val --> A6["A6 · Empaque\nthumbnail + título (A/B)"]
     A6 --> A0{"A0 · Compliance / QA\n+ aprobación final (JD)"}
     A0 -->|aprobado| A7["A7 · Publicación / SEO\nmetadata + AI disclosure"]
     A0 -->|rechazado| A2
@@ -41,7 +42,7 @@ flowchart TD
     classDef agent fill:#EEEDFE,stroke:#534AB7,color:#26215C;
     classDef human fill:#FAECE7,stroke:#993C1D,color:#4A1B0C;
     classDef io fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A;
-    class A1,A2,A3,A4,A5,A6,A7,A8 agent;
+    class A1,A2,A3,A4,A5,Val,A6,A7,A8 agent;
     class H1,A0 human;
     class INPUT,YT io;
 ```
@@ -60,7 +61,8 @@ flowchart TD
 | A3 | **Narración** | guion final | voiceover | ElevenLabs (~$5–22/mes) o híbrido | ⏳ Manual | Voz robótica genérica |
 | A4 | **Dirección visual** | guion final | `02_shotlist.md`: AI art original, mapas, archivo de dominio público | Claude Sonnet | ✅ `.claude/agents/director-visual.md` | Reused content / copyright |
 | A5 | **Edición / ensamblaje** | narración + visuales | timeline, pacing, música con licencia, captions | editor de video | ⏳ Manual | Edición mínima = red flag |
-| A6 | **Empaque** | video ensamblado | `05_empaque.md`: título SEO, descripción, tags, thumbnail concept, capítulos | Claude Sonnet | ✅ `.claude/agents/empaquetador.md` | CTR bajo / clickbait-misinfo |
+| Val | **Validación de video** | transcript auto-generado + guion + shotlist | `04_validacion.md`: semáforos por categoría + veredicto | Claude Sonnet | ✅ `.claude/agents/validador.md` | Video que no corresponde al guion aprobado |
+| A6 | **Empaque** | video validado | `05_empaque.md`: título SEO, descripción, tags, thumbnail concept, capítulos | Claude Sonnet | ✅ `.claude/agents/empaquetador.md` | CTR bajo / clickbait-misinfo |
 | A0 | **Compliance / QA (+ JD)** | episodio + empaque | `compliance.md`: semáforo de monetización + aprobación humana | Claude Sonnet | ✅ `.claude/agents/compliance.md` + gate en dashboard | Inauthentic content policy |
 | A7 | **Publicación / SEO** | video aprobado | metadata, tags, descripción, **AI disclosure**, scheduling por estacionalidad RPM | YouTube Studio | ⏳ Manual | Categorización errónea |
 | A8 | **Medición / analítica** | datos de Studio | KPIs, curvas de retención, feedback a A1/A2 | YouTube Studio API | ✅ `.claude/agents/analista.md` | Volar a ciegas |
@@ -168,8 +170,9 @@ El dashboard maneja un pipeline de stages distinto pero alineado con los agentes
 | `h1` | — (gate manual JD) | aprobación en meta.yaml | H1 |
 | `narracion` | A4 director-visual | `02_shotlist.md` | A4 |
 | `visuales` | — (manual: AI art, ElevenLabs) | assets de producción | A3 + A4 |
-| `ensamble` | — (manual: edición de video) | video ensamblado | A5 |
-| `empaque` | A6 empaquetador → luego A0 compliance | `05_empaque.md` + `compliance.md` | A6 → A0 |
+| `ensamble` | Val validador (requiere transcript pegado en UI) | `04_validacion.md` | Val |
+| `validacion` | A6 empaquetador | `05_empaque.md` | A6 |
+| `empaque` | A0 compliance | `compliance.md` | A0 |
 | `a0` | — (gate manual JD) | `approved_by: JD` en meta.yaml | A0 (aprobación) |
 | `publicado` | — | estado final; muestra todos los entregables | A7 |
 
@@ -184,6 +187,7 @@ episodes/
     00_dossier.md      # A1 curador
     01_guion.md        # A2 guionista
     02_shotlist.md     # A4 director-visual
+    04_validacion.md   # Val validador (transcript vs guion/shotlist)
     05_empaque.md      # A6 empaquetador
     compliance.md      # A0 compliance agent
 
@@ -200,16 +204,23 @@ Los agentes viven en `.claude/agents/*.md` con frontmatter YAML. El dashboard lo
 
 ---
 
-## 9. Estado actual (2026-06-27)
+## 9. Estado actual (2026-06-29)
 
 | Item | Estado |
 |:-:|:-:|
 | Sub-ángulo | ✅ Desapariciones |
-| Agentes A1, A2, A4, A6, A0, A8 | ✅ Implementados |
+| Agentes A1, A2, A4, Val, A6, A0, A8 | ✅ Implementados |
 | Dashboard en Vercel | ✅ Producción en `main` |
-| EP001 — Rebecca Coriam | ✅ Completado (`stage: publicado`, `approved_by: JD`) |
+| Favicon (U blanca en fondo negro) | ✅ Live |
+| Botón "Descargar para ElevenLabs" | ✅ En stage guion |
+| Stage `validacion` + agente `validador` | ✅ Live (PR #14) |
+| EP001 — Rebecca Coriam | ✅ Pipeline IA completo (`stage: publicado`, `approved_by: JD`) |
+| EP001 — Producción manual | ⏳ Narración ElevenLabs en progreso |
+| EP001 — Video editado | ⏳ Pendiente |
+| EP001 — Upload YouTube | ⏳ Pendiente |
+| EP001 — Validación post-video | ⏳ Pendiente (ejecutar `validador` con transcript) |
 | EP002+ | ⏳ Pendiente |
-| A3 narración (ElevenLabs) | ⏳ Manual |
+| A3 narración (ElevenLabs API) | ⏳ Manual (integración futura) |
 | A5 edición de video | ⏳ Manual |
 | A7 publicación a YouTube | ⏳ Manual |
 | Métricas EP001 | ⏳ Pendiente publicación |
@@ -218,8 +229,8 @@ Los agentes viven en `.claude/agents/*.md` con frontmatter YAML. El dashboard lo
 
 ## 10. Próximos pasos
 
-1. **Producir y publicar EP001** en YouTube (narración ElevenLabs + edición + upload manual).
+1. **Completar producción manual EP001**: ElevenLabs (en progreso) → Midjourney (shotlist) → edición → upload YouTube No Listado → transcript → validador → publicar.
 2. **Iniciar EP002** desde el dashboard: "Nuevo episodio" → ejecutar curador → dossier → guion → H1.
-3. **Automatizar A3** (narración): integrar ElevenLabs API en el pipeline una vez validado el formato de guion.
-4. **Medir EP001**: tras 48h de publicación, ejecutar A8 (analista) con datos de YouTube Studio → actualizar `data/metricas.csv`.
+3. **Medir EP001**: tras 48h de publicación, ejecutar A8 (analista) con datos de YouTube Studio → actualizar `data/metricas.csv`.
+4. **Automatizar A3** (narración): integrar ElevenLabs API en el pipeline una vez validado el formato de guion con EP001.
 5. **Evaluar kill-gate M3** a los 3 meses con 3–4 episodios publicados.
