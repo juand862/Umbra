@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 
 const RUNNABLE_STAGES: Record<string, { label: string; agentName: string }> = {
-  curador:   { label: 'Ejecutar curador',        agentName: 'curador' },
-  dossier:   { label: 'Ejecutar guionista',       agentName: 'guionista' },
-  guion:     { label: 'Re-ejecutar guionista',    agentName: 'guionista' },
-  narracion: { label: 'Ejecutar director visual', agentName: 'director-visual' },
-  ensamble:  { label: 'Ejecutar empaquetador',    agentName: 'empaquetador' },
-  empaque:   { label: 'Ejecutar compliance',      agentName: 'compliance' },
+  curador:    { label: 'Ejecutar curador',        agentName: 'curador' },
+  dossier:    { label: 'Ejecutar guionista',       agentName: 'guionista' },
+  guion:      { label: 'Re-ejecutar guionista',    agentName: 'guionista' },
+  narracion:  { label: 'Ejecutar director visual', agentName: 'director-visual' },
+  ensamble:   { label: 'Ejecutar validador',       agentName: 'validador' },
+  validacion: { label: 'Ejecutar empaquetador',    agentName: 'empaquetador' },
+  empaque:    { label: 'Ejecutar compliance',      agentName: 'compliance' },
 }
 
 const PUBLISHED_ARTIFACTS = [
@@ -22,27 +23,29 @@ const PUBLISHED_ARTIFACTS = [
 ]
 
 const PIPELINE = [
-  { id: 'dossier',   label: 'Dossier',   agent: 'A1', isGate: false },
-  { id: 'guion',     label: 'Guion',     agent: 'A2', isGate: false },
-  { id: 'h1',        label: 'Gate H1',   agent: 'JD', isGate: true  },
-  { id: 'narracion', label: 'Narración', agent: 'A3', isGate: false },
-  { id: 'visuales',  label: 'Visuales',  agent: 'A4', isGate: false },
-  { id: 'ensamble',  label: 'Ensamble',  agent: 'A5', isGate: false },
-  { id: 'empaque',   label: 'Empaque',   agent: 'A6', isGate: false },
-  { id: 'a0',        label: 'Gate A0',   agent: 'JD', isGate: true  },
-  { id: 'publicado', label: 'Publicado', agent: 'A7', isGate: false },
+  { id: 'dossier',    label: 'Dossier',    agent: 'A1',  isGate: false },
+  { id: 'guion',      label: 'Guion',      agent: 'A2',  isGate: false },
+  { id: 'h1',         label: 'Gate H1',    agent: 'JD',  isGate: true  },
+  { id: 'narracion',  label: 'Narración',  agent: 'A3',  isGate: false },
+  { id: 'visuales',   label: 'Visuales',   agent: 'A4',  isGate: false },
+  { id: 'ensamble',   label: 'Ensamble',   agent: 'A5',  isGate: false },
+  { id: 'validacion', label: 'Validación', agent: 'Val', isGate: false },
+  { id: 'empaque',    label: 'Empaque',    agent: 'A6',  isGate: false },
+  { id: 'a0',         label: 'Gate A0',    agent: 'JD',  isGate: true  },
+  { id: 'publicado',  label: 'Publicado',  agent: 'A7',  isGate: false },
 ]
 
 const STAGE_FILE: Record<string, { file: string; label: string }> = {
-  dossier:   { file: '00_dossier.md',  label: 'Dossier — A1 curador' },
-  guion:     { file: '01_guion.md',    label: 'Guion — A2 guionista' },
-  h1:        { file: '01_guion.md',    label: 'Guion — pendiente H1' },
-  narracion: { file: '01_guion.md',    label: 'Guion aprobado' },
-  visuales:  { file: '02_shotlist.md', label: 'Shotlist — A4 visuales' },
-  ensamble:  { file: '02_shotlist.md', label: 'Shotlist' },
-  empaque:   { file: '05_empaque.md',  label: 'Empaque — A6' },
-  a0:        { file: 'compliance.md',  label: 'Compliance — pendiente A0' },
-  publicado: { file: '05_empaque.md',  label: 'Empaque publicado' },
+  dossier:    { file: '00_dossier.md',    label: 'Dossier — A1 curador' },
+  guion:      { file: '01_guion.md',      label: 'Guion — A2 guionista' },
+  h1:         { file: '01_guion.md',      label: 'Guion — pendiente H1' },
+  narracion:  { file: '01_guion.md',      label: 'Guion aprobado' },
+  visuales:   { file: '02_shotlist.md',   label: 'Shotlist — A4 visuales' },
+  ensamble:   { file: '02_shotlist.md',   label: 'Shotlist' },
+  validacion: { file: '04_validacion.md', label: 'Validación — Val' },
+  empaque:    { file: '05_empaque.md',    label: 'Empaque — A6' },
+  a0:         { file: 'compliance.md',    label: 'Compliance — pendiente A0' },
+  publicado:  { file: '05_empaque.md',    label: 'Empaque publicado' },
 }
 
 function parseGuionForElevenLabs(slug: string, markdown: string): string {
@@ -135,6 +138,7 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
   const [running, setRunning]        = useState(false)
   const [streamText, setStreamText]  = useState<string | null>(null)
   const [pubTab, setPubTab]          = useState(PUBLISHED_ARTIFACTS[0].file)
+  const [transcript, setTranscript]  = useState('')
   const pubTabRef = useRef(PUBLISHED_ARTIFACTS[0].file)
   const streamRef = useRef<string>('')
 
@@ -151,7 +155,10 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
       const res = await fetch(`/api/episodes/${slug}/run-agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: currentStage }),
+        body: JSON.stringify({
+          stage: currentStage,
+          ...(currentStage === 'ensamble' && transcript ? { transcript } : {}),
+        }),
       })
       if (!res.ok || !res.body) {
         let detail = `HTTP ${res.status}`
@@ -391,23 +398,42 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
         <>
           {/* Botón ejecutar agente */}
           {RUNNABLE_STAGES[currentStage] && (
-            <div className="rounded-2xl border border-violet-800 bg-violet-900/20 p-5 flex items-center justify-between gap-4">
-              <div>
-                <span className="text-xs px-2 py-0.5 rounded-full font-mono mb-1.5 inline-block bg-violet-900/60 text-violet-300">
-                  {RUNNABLE_STAGES[currentStage].agentName}
-                </span>
-                <p className="font-semibold text-white">{RUNNABLE_STAGES[currentStage].label}</p>
-                <p className="text-slate-400 text-sm mt-0.5">
-                  Genera el artefacto con Claude y avanza el stage automáticamente.
-                </p>
+            <div className="rounded-2xl border border-violet-800 bg-violet-900/20 p-5 space-y-4">
+              {currentStage === 'ensamble' && (
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-slate-500 mb-2">
+                    Transcript del video
+                    <span className="ml-2 normal-case text-slate-600">(pega aquí el auto-caption de YouTube o Descript)</span>
+                  </label>
+                  <textarea
+                    value={transcript}
+                    onChange={e => setTranscript(e.target.value)}
+                    placeholder="Pega el transcript aquí antes de ejecutar el validador…"
+                    rows={8}
+                    className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-sm p-3 placeholder-slate-600 focus:outline-none focus:border-violet-600 resize-y font-mono"
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-mono mb-1.5 inline-block bg-violet-900/60 text-violet-300">
+                    {RUNNABLE_STAGES[currentStage].agentName}
+                  </span>
+                  <p className="font-semibold text-white">{RUNNABLE_STAGES[currentStage].label}</p>
+                  <p className="text-slate-400 text-sm mt-0.5">
+                    {currentStage === 'ensamble'
+                      ? 'Cruza el transcript contra guion y shotlist. Genera 04_validacion.md con semáforos.'
+                      : 'Genera el artefacto con Claude y avanza el stage automáticamente.'}
+                  </p>
+                </div>
+                <button
+                  onClick={runAgent}
+                  disabled={running || saving || (currentStage === 'ensamble' && !transcript.trim())}
+                  className="shrink-0 px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium text-sm disabled:opacity-40 transition-colors"
+                >
+                  {running ? 'Ejecutando…' : 'Ejecutar →'}
+                </button>
               </div>
-              <button
-                onClick={runAgent}
-                disabled={running || saving}
-                className="shrink-0 px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium text-sm disabled:opacity-40 transition-colors"
-              >
-                {running ? 'Ejecutando…' : 'Ejecutar →'}
-              </button>
             </div>
           )}
 
@@ -431,7 +457,7 @@ export default function PipelineView({ slug, currentStage, h1Approved, approvedB
             />
           )}
 
-          {!['curador', 'dossier', 'guion', 'narracion', 'empaque', 'a0', 'publicado', ''].includes(currentStage) && nextStage && (
+          {!['curador', 'dossier', 'guion', 'narracion', 'ensamble', 'validacion', 'empaque', 'a0', 'publicado', ''].includes(currentStage) && nextStage && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 flex items-center justify-between gap-4">
               <div>
                 <p className="font-semibold text-white">Marcar etapa completada</p>

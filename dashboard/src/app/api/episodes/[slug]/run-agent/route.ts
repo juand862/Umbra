@@ -16,8 +16,9 @@ const AGENT_MAP: Record<string, {
   dossier:   { agentName: 'guionista',      model: 'claude-opus-4-8',   outputFile: '01_guion.md',    nextStage: 'guion',     contextFiles: ['00_dossier.md'] },
   guion:     { agentName: 'guionista',      model: 'claude-opus-4-8',   outputFile: '01_guion.md',    nextStage: 'guion',     contextFiles: ['00_dossier.md'] },
   narracion: { agentName: 'director-visual',model: 'claude-sonnet-4-6', outputFile: '02_shotlist.md', nextStage: 'visuales',  contextFiles: ['01_guion.md'] },
-  ensamble:  { agentName: 'empaquetador',   model: 'claude-sonnet-4-6', outputFile: '05_empaque.md',  nextStage: 'empaque',   contextFiles: ['00_dossier.md', '01_guion.md', '02_shotlist.md'] },
-  empaque:   { agentName: 'compliance',     model: 'claude-sonnet-4-6', outputFile: 'compliance.md',  nextStage: 'a0',        contextFiles: ['00_dossier.md', '01_guion.md', '05_empaque.md'], repoFiles: ['data/casos_cubiertos.csv'] },
+  ensamble:  { agentName: 'validador',       model: 'claude-sonnet-4-6', outputFile: '04_validacion.md', nextStage: 'validacion', contextFiles: ['01_guion.md', '02_shotlist.md'] },
+  validacion:{ agentName: 'empaquetador',   model: 'claude-sonnet-4-6', outputFile: '05_empaque.md',     nextStage: 'empaque',    contextFiles: ['00_dossier.md', '01_guion.md', '02_shotlist.md', '04_validacion.md'] },
+  empaque:   { agentName: 'compliance',     model: 'claude-sonnet-4-6', outputFile: 'compliance.md',     nextStage: 'a0',         contextFiles: ['00_dossier.md', '01_guion.md', '05_empaque.md'], repoFiles: ['data/casos_cubiertos.csv'] },
 }
 
 function parseAgentPrompt(content: string): string {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY no configurada en Vercel. Ve a Settings → Environment Variables.' }, { status: 500 })
   if (!process.env.GITHUB_TOKEN) return NextResponse.json({ error: 'GITHUB_TOKEN no configurado en Vercel. Necesario para escribir artefactos al repo.' }, { status: 500 })
 
-  const { stage } = await req.json() as { stage: string }
+  const { stage, transcript } = await req.json() as { stage: string; transcript?: string }
   const config = AGENT_MAP[stage]
   if (!config) return NextResponse.json({ error: `No hay agente para stage: ${stage}` }, { status: 400 })
 
@@ -66,6 +67,9 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   for (const path of config.repoFiles ?? []) {
     const content = await getRepoFile(path)
     if (content) contextParts.push(`### ${path}\n\n${content}`)
+  }
+  if (transcript) {
+    contextParts.push(`### Transcript del video (auto-generado)\n\n${transcript}`)
   }
 
   const userMessage = contextParts.length
