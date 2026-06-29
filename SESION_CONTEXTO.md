@@ -91,23 +91,41 @@ curador → dossier → guion → [H1 JD] → narracion → visuales → ensambl
 
 - **Framework**: Next.js 14 App Router — directorio `dashboard/`
 - **Deploy**: Vercel, root directory = `dashboard`
+- **Auth**: NextAuth.js v4 — Google OAuth, whitelist estricta (`juand86@gmail.com`)
 - **GitHub API**: Todas las lecturas/escrituras de artefactos van contra la API de GitHub
-- **Variables de entorno requeridas en Vercel**:
+- **Variables de entorno requeridas en Vercel** (todos los entornos: Production, Preview, Development):
   - `GITHUB_TOKEN` — leer/escribir archivos del repo
   - `ANTHROPIC_API_KEY` — ejecutar agentes Claude
   - `GITHUB_OWNER` (default: `juand862`)
   - `GITHUB_REPO` (default: `Umbra`)
   - `GITHUB_BRANCH` (default: `main`)
+  - `GOOGLE_CLIENT_ID` — OAuth app de Google Cloud Console
+  - `GOOGLE_CLIENT_SECRET` — OAuth app de Google Cloud Console
+  - `NEXTAUTH_SECRET` — string aleatorio (ej: `openssl rand -base64 32`)
+  - `NEXTAUTH_URL` — URL exacta del deploy (ej: `https://umbra-henna-chi.vercel.app`)
+
+## Auth — Google Cloud Console
+
+- Proyecto OAuth en [console.cloud.google.com](https://console.cloud.google.com)
+- **Authorized JavaScript Origins**: `https://umbra-henna-chi.vercel.app`
+- **Authorized redirect URIs**: `https://umbra-henna-chi.vercel.app/api/auth/callback/google`
+- Solo `juand86@gmail.com` puede autenticarse — cualquier otro email recibe `AccessDenied`
 
 ## Archivos clave del dashboard
 
 | Archivo | Rol |
 |---|---|
+| `src/middleware.ts` | Protege todas las rutas — redirige a `/login` si no hay sesión |
+| `src/app/api/auth/[...nextauth]/route.ts` | Handler NextAuth con Google provider y whitelist de email |
+| `src/app/login/page.tsx` | Página de login con botón "Continuar con Google" |
+| `src/components/AuthProvider.tsx` | SessionProvider wrapper (client component) |
+| `src/components/NavUser.tsx` | Email del admin + botón Salir en el nav |
 | `src/components/PipelineView.tsx` | Stepper, panel de artefacto, botones de acción por stage |
 | `src/app/api/episodes/[slug]/run-agent/route.ts` | SSE streaming — ejecuta agente Claude y guarda output en GitHub |
 | `src/app/api/episodes/[slug]/file/route.ts` | GET — lee cualquier .md del episodio desde GitHub |
 | `src/app/api/episodes/[slug]/meta/route.ts` | PUT — actualiza meta.yaml |
 | `src/app/api/episodes/new/route.ts` | POST — crea nuevo episodio |
+| `src/app/api/debug-auth/route.ts` | Diagnóstico de auth (temporal — eliminar en producción limpia) |
 | `src/lib/github.ts` | Helpers GitHub API (incluye `getRepoFile` para archivos fuera del episodio) |
 | `src/app/icon.svg` | Favicon (U blanca en fondo negro) |
 
