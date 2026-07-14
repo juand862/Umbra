@@ -35,9 +35,13 @@ EP001 ha completado el pipeline de IA. Queda producción manual:
 | Paso | Herramienta | Estado |
 |---|---|---|
 | 1. Narración (voiceover) | ElevenLabs — Text to Speech | ⏳ En progreso |
-| 2. Visuales (imágenes por escena) | Midjourney (referencia: `02_shotlist.md`) | ⏳ Pendiente |
-| 3. Edición y ensamblaje | Editor de video (CapCut / Resolve) | ⏳ Pendiente |
-| 4. Subir a YouTube | YouTube Studio | ⏳ Pendiente |
+| 2. Video por escena | ElevenLabs Video / Kling 2.5 Turbo (prompts de `02_shotlist.md`) | ⏳ Pendiente |
+| 3. Edición y ensamblaje | CapCut / DaVinci Resolve: clips Kling + audio narración | ⏳ Pendiente |
+| 4. Subir a YouTube | YouTube Studio — No Listado | ⏳ Pendiente |
+
+> **Nota (2026-07-14):** Midjourney reemplazado por ElevenLabs Video (Kling 2.5 Turbo).
+> Genera video cinematográfico por escena con prompts — más simple y mayor retención que imágenes estáticas.
+> Los prompts del `02_shotlist.md` se usan directamente como input de Kling.
 
 **Flujo para el validador (nueva feature):**
 1. Sube el video ensamblado a YouTube como **No listado**
@@ -49,7 +53,7 @@ EP001 ha completado el pipeline de IA. Queda producción manual:
 ## Pipeline completo (actualizado)
 
 ```
-curador → dossier → guion → [H1 JD] → narracion → visuales → ensamble → [validador] → validacion → empaque → [compliance] → a0 → [JD aprueba] → publicado
+curador → dossier → guion → [H1 JD] → narracion (ElevenLabs TTS) → visuales (Kling 2.5 Turbo) → ensamble → [validador] → validacion → empaque → [compliance] → a0 → [JD aprueba] → publicado
 ```
 
 ### Stages con agente ejecutable desde el front
